@@ -93,3 +93,286 @@ purum <- tibble::rownames_to_column(psych::describe(datain2), "row_name")
 table(datain3$Группа, datain3$`Группа крови`)
 prop.table(table(datain3$Группа, datain3$`Группа крови`))
 ```
+### Serious work with data sets by using dplyr/tibble (The 6th chapter)
+#### 6.1
+```{r lazy-estimation}
+
+tibble(var_first = 1:10, var_second = ifelse(var_first < 5, var_first + 100, var_first))
+
+tibble(`var 1` = 1:10, `var 2` = `var 1` * 100) 
+```
+#### 6.4
+```{r columns-selection, warning=FALSE}
+datain %>% 
+  glimpse()
+
+datain %>%
+  select(`Группа крови`, `Рост`)
+
+datain %>% 
+  select(!`Группа`)
+
+datain %>% 
+  select(where(is.numeric))
+
+datain %>% 
+  select(`Группа`, where(is.numeric))
+
+# doesn't work out
+#datain %>% 
+  #select(`Группа`, where(is.numeric) & function(x) mean(x, na.rm = TRUE) > 10)
+
+datain %>% 
+  select(`Группа`, (function(x) is.factor(x)) | where(function(x) is.numeric(x)))
+
+datain %>% select(`Пол`, `Группа`, `Базофилы_E1`)
+
+datain %>% select(`Группа`, function(x) !is.factor(x))
+
+# doesn't work out 
+#datain %>% select(function(x) any(str_detect(x, "Жен")))
+datain %>% select(`Группа крови`, `Возраст`, function(x) anyNA(x))
+
+datain %>% 
+  select(contains("_E1"))
+
+datain %>% 
+  select(matches("_E\\d{1}"))
+
+datain %>% 
+  select(starts_with("Б"))
+
+datain %>% 
+  select(ends_with("E2"))
+
+variables <- c("Базофилы_E1", "Эозинофилы_E1", "Гемоглобин_E1")
+datain %>% 
+  select(variables)
+
+datain %>% 
+  select(all_of(variables))
+
+datain %>% 
+  select(any_of(variables))
+
+datain %>% 
+  select(where(is.numeric)) %>% 
+  select(where(function(x) sd(x, na.rm=TRUE) > 2 & mean(x, na.rm=TRUE) < 10))
+
+datain %>% 
+  select(where(is.numeric)) %>% 
+  select(where(function(x) sd(x, na.rm=TRUE) > 2 | mean(x, na.rm=TRUE) < 10 | median(x, na.rm = TRUE) > 5))
+
+datain %>%
+  select(!where(is.numeric))
+
+datain %>% 
+  select(`Пол`, `Эритроциты_E1`, everything())
+
+datain %>% 
+  select(`Эритроциты__Визит 1` = `Эритроциты_E1`, `Эритроциты__Визит 2` = `Эритроциты_E2`)
+
+```
+
+#### 6.5
+
+```{r rows-selection}
+datain %>% 
+  slice(1:10)
+
+datain %>% 
+  slice(1:10 * -1)
+
+datain %>% 
+  slice_head(n=10)
+
+datain %>% 
+  slice_head(prop=0.1)
+
+datain %>% 
+  slice_tail(prop=0.1)
+
+datain %>% 
+  slice_sample(prop = 0.15)
+
+datain %>% 
+  slice_min(`Возраст`)
+
+datain %>% 
+  filter(`Пол` == "Женский")
+
+datain %>% 
+  filter(`Группа крови` %in% c("A (II)", "0 (I)") & `Группа` != "Группа 1")
+
+datain %>% 
+  filter(between(`Возраст`, 31, 34))
+
+datain %>% 
+  filter(near(`Эозинофилы_E1`, 3.38, tol = 0.1))
+
+datain %>% 
+  filter(if_all(.cols = contains("Базофилы"), .fns = function(x) x > 1.5))
+
+datain %>% 
+  filter(if_any(.cols = contains("Базофилы"), .fns = function(x) x > 1.5))
+
+datain %>% 
+  group_by(`Группа`) %>% 
+  filter(`Возраст` > 36)
+```
+#### 6.6
+```{r variables-mutation}
+datain %>% 
+  mutate(`Женщины с чётвертой группой крови` = ifelse(`Пол` == "Женский" & `Группа крови` == "AB (IV)", "Да", "Нет")) %>% 
+  select(`Женщины с чётвертой группой крови`, everything()) %>% 
+  arrange(`Женщины с чётвертой группой крови`)
+
+datain %>% 
+  mutate(`Возрастная группа` = case_when(`Возраст` < 20 ~ "<20",
+                                         between(`Возраст`, 20, 30) ~ "20 - 30",
+                                         `Возраст` > 30 ~ "> 30") %>% as.factor()) %>% 
+  select(`Возраст`, `Возрастная группа`)
+
+datain %>% 
+  mutate(`Группа крови` = `Группа крови` %>% as.character() %>% replace_na("Нет данных") %>% 
+           as.factor())
+
+datain %>% 
+  mutate(`Группа крови` = `Группа крови` %>% na_if("B (III)"))
+
+datain %>% 
+  mutate(`Группа` = NULL)
+
+datain %>% 
+  mutate(across(where(is.numeric), function(x) (x-mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)))
+
+datain %>% 
+  mutate(across(contains("E1"), function(x) (x - mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)))
+
+# doesn't work out
+#datain %>% 
+#  mutate(across(function(x) mean(x, na.rm = TRUE) < 10, function(x) (x-mean(x, na.rm = TRUE)) / sd(x, na.rm = TRUE)))
+
+# doesn't work out
+#datain %>% mutate(across(!contains("E1") & !c(`Группа`, `Возраст`) & !where(is.factor), function(x) x ^ 2), across(contains("E2"), function(x) x * 100))
+
+datain %>% mutate(across(!contains("E1"), function(x) str_c(x, " + некая строка")))
+
+datain %>% 
+  rowwise() %>% 
+  mutate(`Среднее по базофилам` = mean(c_across(contains("Базофилы")))) %>% 
+  ungroup() %>% 
+  select(contains("Базофил"))
+
+datain %>% 
+  group_by(`Группа`) %>% 
+  mutate(across(contains("Базофилы"), function(x) x-mean(x, na.rm = TRUE))) %>% 
+  ungroup() %>% 
+  select(`Группа`, contains("Базофилы"))
+```
+#### 6.7 
+```{r renaming}
+datain %>% 
+  rename(`Эритроциты__Визит 1` = `Эритроциты_E1`, `Эритроциты__Визит 2` = `Эритроциты_E2`) %>% 
+  select(contains("Визит"))
+
+datain %>% 
+  rename_with(function(x) x %>% stringi::stri_replace_all_regex(c("_E1", "_E2"), c("_Визит 1", "_Визит 2"), vectorize_all = FALSE)) %>% 
+  glimpse()
+
+datain %>% 
+  rename_with(.cols = where(is.numeric), .fn = function(x) str_c(x, " КОЛИЧЕСТВЕННАЯ ПЕРЕМЕННАЯ")) %>% 
+  glimpse()
+
+new_name <- "cool name"
+
+datain %>% 
+  rename(!! new_name := `Группа`) %>% 
+  glimpse()
+```
+
+#### 6.8
+
+```{r sorting}
+datain %>% 
+  arrange(`Возраст`)
+
+datain %>% 
+  arrange(`Группа крови`)
+
+datain %>% 
+  arrange(desc(`Рост`))
+
+datain %>% 
+  arrange(desc(`Рост`), `Возраст`)
+
+datain %>% 
+  group_by(`Группа`) %>% 
+  arrange(`Возраст`, .by_group = TRUE)
+```
+
+#### 6.9
+```{r dataframes rotations}
+datain %>% 
+  select(`Группа`, contains("E1")) %>% 
+  pivot_longer(!`Группа`)
+
+datain %>% 
+  select(`Группа`, contains("E1")) %>% 
+  mutate(ID = row_number()) %>% 
+  pivot_longer(!c(`Группа`, ID)) %>% 
+  pivot_wider(id_cols = ID)
+```
+#### 6.10
+```{r selection-of-unique-combinations}
+
+datain %>% 
+  distinct(`Группа`, .keep_all = TRUE)
+```
+#### 6.11 
+```{r separation-and-bonding}
+tibble(var_1 = rep(paste0("first part", "__", "second part"), 10)) %>% 
+  separate(var_1, into = c("var_1", "var_2"), sep = "__")
+
+tibble(var_1 = rep(paste0("first part", "__", "second part"), 10)) %>% 
+  separate(var_1, into = c("var_1", "var_2"), sep = "__") %>% 
+  unite("new_var", var_1, var_2, sep = " AND ")
+```
+#### 6.12
+```{r calculation-of-statistics}
+datain %>% 
+  select(`Группа`, where(is.numeric)) %>% 
+  group_by(`Группа`) %>% 
+  summarize(across(where(is.numeric), function(x) mean(x, na.rm = TRUE)))
+
+statistics <- list(
+      `Количество субъектов` = ~length(.x),
+      `Количество (есть данные)` = ~sum(!is.na(.x)),
+      `Нет данных` = ~sum(is.na(.x)),
+      `Ср. знач.` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", mean(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Станд. отклон.` = ~ifelse(sum(!is.na(.x)) < 3, "Н/П*", sd(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `95% ДИ для среднего` = ~sd(.x, na.rm = TRUE) %>% round(2) %>% as.character(),
+      `мин. - макс.` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(min(.x, na.rm = TRUE) %>% round(2), " - ", max(.x, na.rm = TRUE) %>% round(2))),
+      `Медиана` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", median(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Q1 - Q3` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(quantile(.x, 0.25, na.rm = TRUE) %>% round(2), " - ", quantile(.x, 0.75, na.rm = TRUE) %>% round(2)))
+)
+
+# doesn't work out
+#datain %>% 
+#  select(`Группа`, where(is.numeric)) %>% 
+#  group_by(`Группа`) %>% 
+#  summarise(across(where(is.numeric), statistics)) %>% 
+#  pivot_longer(!`Группа`) %>% 
+#  separate(name, into = c("Переменная", "Статистика"), sep = "__") %>% 
+#  rename(`Значение` = value)
+
+# doesn't work out
+#datain %>% 
+#  select(`Группа`, where(is.factor)) %>% 
+#  mutate(`Группа крови` = `Группа крови` %>% as.character() %>% replace_na("Нет данных") %>% as.factor()) %>% 
+#  count(`Группа`, `Группа крови`) %>% 
+#  group_by(`Группа`) %>% 
+#  mutate(`Процент по группе` = (n / sum(n)) %>% round(4) %>% `*`(100) %>% str_c("%")) %>% 
+#  ungroup() %>% 
+#  mutate(`Процент по выборке` = (n / sum(n)) %>% round(4) %>% `*`(100) %>% str_c*("%"))
+```
