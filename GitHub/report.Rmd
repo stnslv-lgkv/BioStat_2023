@@ -376,3 +376,62 @@ statistics <- list(
 #  ungroup() %>% 
 #  mutate(`Процент по выборке` = (n / sum(n)) %>% round(4) %>% `*`(100) %>% str_c*("%"))
 ```
+### Printing tables (The 7th chapter)
+```{r flextable-package, warning=FALSE}
+statistics <- list(
+      `Количество субъектов` = ~length(.x) %>% as.character(),
+      `Количество (есть данные)` = ~sum(!is.na(.x)) %>% as.character(),
+      `Нет данных` = ~sum(is.na(.x)) %>% as.character(),
+      `Ср. знач.` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", mean(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Станд. отклон.` = ~ifelse(sum(!is.na(.x)) < 3, "Н/П*", sd(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `95% ДИ для среднего` = ~sd(.x, na.rm = TRUE) %>% round(2) %>% as.character(),
+      `мин. - макс.` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(min(.x, na.rm = TRUE) %>% round(2), " - ", max(.x, na.rm = TRUE) %>% round(2))),
+      `Медиана` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", median(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `Q1 - Q3` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(quantile(.x, 0.25, na.rm = TRUE) %>% round(2), " - ", quantile(.x, 0.75, na.rm = TRUE) %>% round(2)))
+)
+
+datain %>% 
+  select(`Группа`, where(is.numeric)) %>% 
+  group_by(`Группа`) %>% 
+  summarise(across(where(is.numeric), statistics)) %>% 
+  pivot_longer(!`Группа`) %>% 
+  separate(name, into = c("Переменная", "Статистика"), sep = "_") %>% 
+  rename(`Значение` = value) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  merge_v(c("Группа", "Переменная"))
+
+tibble(var_1 = c("p-value", "0.001"),
+       var_2 = c("p-value", "0.05")) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  merge_h(i = 1)
+
+tibble(`Adverse events` = c("SOC Желудочно-кишечные нарушения 10017947", "PT Тошнота 10028813",
+                            "SOC Нарушения со стороны нервной системы 1002905", "PT Головная боль 10019211")) %>% flextable() %>% 
+  theme_box() %>% 
+  align(align = "center", part = "all")
+
+tibble(`Adverse events` = c("SOC Желудочно-кишечные нарушения 10017947", "PT Тошнота 10028813",
+                            "SOC Нарушения со стороны нервной системы 1002905", "PT Головная боль 10019211")) %>% flextable() %>% 
+  theme_box() %>% 
+  align(i = ~str_detect(`Adverse events`, "SOC"), align = "left") %>% 
+  align(i = ~str_detect(`Adverse events`, "PT"), align = "right") %>% 
+  bold(i = ~str_detect(`Adverse events`, "SOC")) %>% 
+  italic(i = ~str_detect(`Adverse events`, "PT")) %>% 
+  width(width = 2)
+  
+is_pvalue_sign <- function(x){
+  x %>% str_remove("<") %>% as.numeric() %>% `<`(0.05)
+}
+
+tibble("p-value" = c("<0.001", "0.38", "0.124", "0.005", "0.05")) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  color(i = ~is_pvalue_sign(`p-value`), color = "red")
+
+tibble("p-value" = c("<0.001", "0.38", "0.124", "0.005", "0.05")) %>% 
+  flextable() %>% 
+  theme_box() %>% 
+  bg(i = ~is_pvalue_sign(`p-value`), bg = "pink")
+```
