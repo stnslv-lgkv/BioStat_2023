@@ -1,0 +1,95 @@
+---
+title: "Github report"
+author: "Stanislav Legkovoy"
+date: "`r Sys.time()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+```
+
+```{r libs+data}
+
+library(tidyverse)
+library(psych)
+library(flextable)
+
+
+datain <- read_delim("data/data_tsv.tsv", delim = "\t")
+datain2 <- readRDS("data/numeric_data.rds")
+datain3 <- readRDS("data/factor_data.rds")
+
+```
+
+### Calculating descriptive statistics (The 5th chapter)
+#### 5.1
+```{r desc-stats1}
+# mean
+vectors1 <- list(v1=c(76, 65, 71, 16, 60, 29, 71, 46, 45, 41),
+                v2=c(NA, NA, NA, NA, NA, NA, 3, NA, NA),
+                v3=c(-19, -9, 19, 5, -14, 0, 34, -8, 34, 24, -11, 8, 33, 12, -6),
+                v4=c(1, -1, 5, -12, -12, 3, 8, -10, 0),
+                v5=c(-2, 16, -3, 16, -9, 7, 31),
+                v6=c(-13, 19, -24, NA, 30, 64, -53, NA, 50, 31, -58, -34, -3, -34, 77))
+
+unlist(lapply(vectors1, mean, na.rm = T))
+# median
+vectors2 <- list(v1=c(19, 89, 78, 38, 8, 17, 25, 60, 8, 43, 29, 6, 62, 41, 69, 97, 61, 83, 25, 24),
+                 v2=c(1, 9, NA, 88, 2, NA, 42, NA, 4, 68, NA),
+                 v3=c(-92, -50, 54, 55, 84, 52, -55, -23, 36, -11, 22, 11, -7),
+                 v4=c(-91, -33, 13, 34, 34, 75, -80, -35, -90, -72, 70, 67, -100, -94, -18),
+                 v5=c(-15, 71, 77, 36, 66, -21, -48, -8))
+
+unlist(lapply(vectors2, median, na.rm = T))
+# min, max
+vectors3 <- list(v1=c(48.11, 45.3, 58.42, 51.64, 62.07, 57.26, 49.69, 93.29, 81.18, 44.78, 55.1, 76.74, 58.08),
+                 v2=c(60.22, 31.91, 72.71, 52.49, 46.21, 60.39, 60.09),
+                 v3=c(68.92, 44.15, 34.2, 34.12, 37.7, 73.95, 36.9, 59.26, 31.06, 55.79, 73.92, 68.04, 53.73, 90.7, 39.66),
+                 v4=c(17.24, 35.77, 57.57, 30.15, 43.27, 77.56, 72.19, 40.45, 46.2, 39.92),
+                 v5=c(90.48, 31.16, 44.4, 21.94, 84.37, 53.15, 81.15, 47.86, 63.23, 46.75, 102.73))
+
+multiple_foos <- function(x) {c(min=min(x, na.rm = T), max=max(x, na.rm = T))}
+unlist(lapply(vectors3, multiple_foos))
+# quantile
+vectors4 <- list(v1=c(80.94, 44.46, 46.33, 65.1, 66.42, 104.43, 53.15, 48.41, 12.88, 51.1, 43.03, 40.3, 33.71, 55.1, 22.17),
+                 v2=c(26.17, 97.73, 24.81, 53.62, 87.72, 45.19, 45.7, 69.63, 36.76, 7.17),
+                 v3=c(63.92, 35.85, 26.9, 48.92, 43.1, 66.94, 47.06, 56.54, 29.1, 58.88),
+                 v4=c(32.05, 93.85, 85.52, 56.69, 23.69, 11.29, 51.44, 63.09, 65.65, 35.73, 60.15, 30.93, -4.2))
+
+unlist(lapply(vectors4, quantile, probs = seq(0, 1, 0.25), na.rm = FALSE, names = TRUE, type = 7))
+# var,sd
+vectors5 <- list(v1=c(47.44, 62.44, 20.44, 72.75, 77.86, 13.74, 28.2, 50.47, 59.19, 69.04),
+                 v2=c(49.31, 44.47, 14.04, 44.43, 49.18, 40.73, 44.65, 41.91, 80.38, 80.09),
+                 v3=c(57.96, 20.81, 8.92, 14.03, 61.02, 25.69, 21.22, 49.56, 25.64, 28.31),
+                 v4=c(76.22, 65, 19.69, 29.84, 37.18, 70.93, 64.78, 61.66, 49.03, 51.56),
+                 v5=c(92.11, 56, 47.89, 62.96, 47.41, 37.05, 73.96, 53, 52.37, 85.23))
+
+multiple_foos2 <- function(x) {c(var=var(x, na.rm = T), sd=sd(x, na.rm = T))}
+unlist(lapply(vectors5, multiple_foos2))
+# IQR
+vectors6 <- list(v1=c(80.94, 44.46, 46.33, 65.1, 66.42, 104.43, 53.15, 48.41, 12.88, 51.1, 43.03, 40.3, 33.71, 55.1, 22.17),
+                 v2=c(26.17, 97.73, 24.81, 53.62, 87.72, 45.19, 45.7, 69.63, 36.76, 7.17),
+                 v3=c(63.92, 35.85, 26.9, 48.92, 43.1, 66.94, 47.06, 56.54, 29.1, 58.88),
+                 v4=c(32.05, 93.85, 85.52, 56.69, 23.69, 11.29, 51.44, 63.09, 65.65, 35.73, 60.15, 30.93, -4.2))
+unlist(lapply(vectors6, IQR, na.rm = FALSE, type = 7))
+# sd/sqrt(length)
+vectors7 <- list(v1=c(47.44, 62.44, 20.44, 72.75, 77.86, 13.74, 28.2, 50.47, 59.19, 69.04),
+                 v2=c(49.31, 44.47, 14.04, 44.43, 49.18, 40.73, 44.65, 41.91, 80.38, 80.09),
+                 v3=c(57.96, 20.81, 8.92, 14.03, 61.02, 25.69, 21.22, 49.56, 25.64, 28.31),
+                 v4=c(76.22, 65, 19.69, 29.84, 37.18, 70.93, 64.78, 61.66, 49.03, 51.56),
+                 v5=c(92.11, 56, 47.89, 62.96, 47.41, 37.05, 73.96, 53, 52.37, 85.23))
+complex_foo <- function(x) {se=sd(x)/sqrt(length(x))}
+unlist(lapply(vectors7, complex_foo))
+```
+#### 5.2
+```{r summary-func1}
+purum <- tibble::rownames_to_column(psych::describe(datain2), "row_name")
+```
+Среднее значение переменной "`r purum$row_name[3]`" равно `r round(purum$mean[3],2)`. Стандартное отклонение переменной "`r purum$row_name[3]`" равно `r round(purum$sd[3],2)`. Максимум переменной "`r purum$row_name[6]`" равен `r round(purum$max[6],2)`. Стандартная ошибка среднего переменной "`r purum$row_name[9]`" равна `r round(purum$se[9],2)`.
+
+```{r summary-func2, warning=FALSE}
+# Something goes wrong with cyrillic symbols
+table(datain3$Группа, datain3$`Группа крови`)
+prop.table(table(datain3$Группа, datain3$`Группа крови`))
+```
