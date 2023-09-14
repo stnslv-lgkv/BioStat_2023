@@ -1,2 +1,2 @@
 # BioStat_2023
-Homework repository
+Homework repo
