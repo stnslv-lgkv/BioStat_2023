@@ -1,0 +1,666 @@
+---
+title: "automatization_notebook_02"
+output: 
+  html_document: 
+    keep_md: yes
+author: "Stanislav Legkovoy"
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(rlang)
+library(ggbeeswarm)
+library(corrplot)
+
+```
+
+# Чтение данных
+
+В вашем варианте нужно использовать датасет food.
+
+```{r data}
+
+food <- read.csv("data/raw/food.csv")
+
+```
+
+# Выведите общее описание данных
+
+```{r general-description}
+
+str(food)
+psych::describe(food)
+
+```
+
+# Очистка данных
+
+1) Уберите переменные, в которых пропущенных значений больше 20% или уберите субъектов со слишком большим количеством пропущенных значений. Или совместите оба варианта. Напишите обоснование, почему вы выбрали тот или иной вариант:
+
+```{r}
+
+food %>% 
+  rowwise() %>% 
+  mutate(num_missing = sum(is.na(c_across(Nutrient.Data.Bank.Number:last_col())))) %>% 
+  select(everything()) %>% 
+  arrange(desc(num_missing)) -> food2
+
+food %>%
+  summarise(across(everything(), ~ sum(is.na(.x))))
+
+```
+
+**Обоснование**: 
+Исходя из текущих реалий, в данном датасете отсутствуют пропущенные значения, т.е нет нужды в удалении какой-то информации. Стратегия обработки пропущенных значений во многом зависит от того, какого харакетра пропуски имеют место в наборе данных (MCAR, MAR, MNAR) и каков объём пропусков - если при удалении значения используемого статистического теста изменяются несущественно, то удаление безопасно, но, вероятно, мощность теста будет сниженной. Я бы не стал удалять столбец (==поле. атрибут) таблицы при указанных 20% пропусков, но задумался бы об этом при достижении 50-60%, особенно если переменная не является значительной для анализа. 
+
+2) Переименуйте переменные в человекочитаемый вид (что делать с пробелами в названиях?);
+
+```{r}
+
+names(food2) <- gsub("\\.", "_", names(food2))
+names(food2) <- sub("___", "_", names(food2))
+```
+
+3) В соответствии с описанием данных приведите переменные к нужному типу (numeric или factor);
+4) Отсортируйте данные по углеводам по убыванию;  
+
+```{r}
+
+food2 %>% 
+  mutate(across(-c(Category, Description, Nutrient_Data_Bank_Number), as.numeric)) %>% 
+  mutate(across(Category, as.factor)) %>% 
+  arrange(desc(Data_Carbohydrate))-> food3
+
+```
+
+5) Сохраните в файл outliers.csv субъектов, которые являются выбросами (например, по правилу трёх сигм) — это необязательное задание со звёздочкой; 
+
+```{r}
+
+threesigmafoo <- function(x) abs(x-mean(x))/sd(x)
+
+food3$z_carbo <- threesigmafoo(food3$Data_Carbohydrate)
+
+food3 %>%
+  filter(z_carbo>3) %>% 
+  select(-c("z_carbo", "num_missing")) %>% 
+  write_csv("data/outliers.csv")
+
+```
+
+6) Отфильтруйте датасет так, чтобы остались только Rice и Cookie (переменная Category и есть группирующая);
+7) Присвойте получившийся датасет переменной "cleaned_data".
+
+```{r}
+
+cleaned_data <- food3 %>%
+  select(-c("num_missing", "z_carbo")) %>% 
+  filter(Category %in% c("Rice", "Cookie"))
+
+```
+
+# Сколько осталось переменных?
+
+```{r}
+
+ncol(cleaned_data)
+
+```
+
+# Сколько осталось случаев?
+
+```{r}
+
+nrow(cleaned_data)
+
+```
+
+# Есть ли в данных идентичные строки?
+
+```{r}
+
+sum(duplicated(cleaned_data))
+
+```
+
+# Сколько всего переменных с пропущенными значениями в данных и сколько пропущенных точек в каждой такой переменной?
+
+```{r}
+
+all(is.na(cleaned_data))
+
+```
+
+# Описательные статистики
+
+## Количественные переменные
+
+1) Рассчитайте для всех количественных переменных для каждой группы (Category):
+
+1.1) Количество значений;
+
+1.2) Количество пропущенных значений;
+
+1.3) Среднее;
+
+1.4) Медиану;
+
+1.5) Стандартное отклонение;
+
+1.6) 25% квантиль и 75% квантиль;
+
+1.7) Интерквартильный размах;
+
+1.8) Минимум;
+
+1.9) Максимум;
+
+1.10) 95% ДИ для среднего - задание со звёздочкой.
+
+```{r}
+
+calcse <- function(x) sd(x)/sqrt(length(x))
+
+statistics <- list(
+      `__Количество субъектов` = ~length(.x) %>% as.character(),
+      `__Количество (есть данные)` = ~sum(!is.na(.x)) %>% as.character(),
+      `__Нет данных` = ~sum(is.na(.x)) %>% as.character(),
+      `__Ср. знач.` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", mean(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `__Медиана` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", median(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `__Станд. отклон.` = ~ifelse(sum(!is.na(.x)) < 3, "Н/П*", sd(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `__Q1 - Q3` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", paste0(quantile(.x, 0.25, na.rm = TRUE) %>% round(2), " - ", quantile(.x, 0.75, na.rm = TRUE) %>% round(2))),
+      `__Интерквартильный размах` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", IQR(.x, na.rm = TRUE)) %>% round(2) %>% as.character(),
+      `__Минимум` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", min(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `__Максимум` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", max(.x, na.rm = TRUE) %>% round(2) %>% as.character()),
+      `__95% ДИ для среднего` = ~ifelse(sum(!is.na(.x)) == 0, "Н/П*", calcse(.x)) %>% round(2) %>% as.character()
+)
+  
+cleaned_data %>% 
+  select(Category, starts_with("Data")) %>% 
+  group_by(Category) %>% 
+  summarise(across(where(is.numeric), statistics)) %>% 
+  pivot_longer(!Category) %>% 
+  separate(name, into=c("Переменная", "Статистика"), sep="___") %>% 
+  rename(`Значение` = value)
+
+```
+
+## Категориальные переменные    
+
+1) Рассчитайте для всех категориальных переменных для каждой группы (Category):
+
+1.1) Абсолютное количество;
+
+1.2) Относительное количество внутри группы;    *not done*
+
+1.3) 95% ДИ для доли внутри группы - задание со звёздочкой.   *not done*
+
+В наших данных всего одна категориальная перменная, потому не представляется расчёт пунктов 1.2 и 1.3 (p.s.: вероятно, я что-то понял превратно)
+
+```{r}
+
+cleaned_data %>% 
+  group_by(Category) %>% 
+  count(Category)
+
+```
+
+# Визуализация
+
+## Количественные переменные
+
+1) Для каждой количественной переменной сделайте боксплоты по группам. Расположите их либо на отдельных рисунках, либо на одном, но читаемо;
+
+2) Наложите на боксплоты beeplots - задание со звёздочкой.               
+
+3) Раскрасьте боксплоты с помощью библиотеки RColorBrewer.           
+
+```{r, fig.height=20, fig.width=8}
+
+df.long1 <- cleaned_data %>% 
+  pivot_longer(Data_Alpha_Carotene:Data_Vitamins_Vitamin_K, names_to = 'variable', values_to = 'value')
+
+#ggplot(data = cleaned_data, aes(x = Category, y = Data_Alpha_Carotene, fill = Category)) +
+#  geom_boxplot(outlier.shape = NA) +
+#  scale_fill_manual(values=c("slateblue3", "springgreen3"))+
+#  theme(legend.position="bottom") +
+#  geom_beeswarm(cex=5, size=0.1)
+
+ggplot(data = df.long1, aes(x = Category, y = value, fill = Category)) +
+  geom_boxplot(outlier.shape = NA) +
+  scale_fill_manual(values=c("slateblue3", "springgreen3"))+
+  theme(legend.position="bottom") +
+  geom_beeswarm(cex=3, size=0.1) +
+  facet_wrap(facets = ~variable, scales = 'free', ncol=3)
+
+#ggplot(data = df.long1, aes(x = Category, y = value, fill = Category)) +
+#  geom_boxplot(outlier.colour =  'red3', outlier.shape = 3, outlier.size = 0.5) +
+#  scale_fill_manual(values=c("slateblue3", "springgreen3"))+
+#  theme(legend.position="bottom") +
+#  geom_beeswarm(cex=1)+
+#  facet_wrap(facets = ~variable, scales = 'free', ncol=3)
+
+```
+
+## Категориальные переменные
+
+1) Сделайте подходящие визуализации категориальных переменных. Обоснуйте, почему выбрали именно этот тип.
+
+```{r, warning=FALSE}
+
+ggplot(data=cleaned_data,  aes(x=Category, fill=Category)) +
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust = -0.2)
+
+```
+
+В данных всего одна категориальная переменная с 2мя уровнями, потому и была выбрана столбиковая диаграмма для визуализации.
+
+# Статистические оценки
+
+## Проверка на нормальность
+
+1) Оцените каждую переменную на соответствие нормальному распределению с помощью теста Шапиро-Уилка. Какие из переменных являются нормальными и как как вы это поняли?
+
+```{r}
+
+cleaned_data %>% 
+  select(starts_with("Data_")) -> num_part_of_cd
+
+do.call(rbind, lapply(num_part_of_cd, function(x) shapiro.test(x)[c("statistic", "p.value")]))
+
+```
+Судя по результатам работы критерия Шапиро-Уилка в датасете нет ни одной числовой переменной, которая была бы распределена нормально (значение p.value << 0.05).
+
+2) Постройте для каждой количественной переменной QQ-плот. Отличаются ли выводы от теста Шапиро-Уилка? Какой метод вы бы предпочли и почему?
+
+```{r, fig.height=30, fig.width=8}
+
+#qq_plot <- ggplot(df.long1, aes(sample=value)) +
+#  stat_qq() + 
+#  stat_qq_line()
+
+ggplot(data = df.long1, aes(sample = value, color = variable)) +
+  stat_qq_line()+
+  stat_qq()+
+  theme(legend.position="none") +
+  facet_wrap(facets = ~variable, scales = 'free', ncol=3)
+
+```
+
+3) Ниже напишите, какие ещё методы проверки на нормальность вы знаете и какие у них есть ограничения.
+
+**Напишите текст здесь**
+Для оценки нормальности распределения данных я скорее предпочёл бы не полагаться на какой-то единственный метод проверки, а учитывать результаты нескольких, т.е. чтобы оценка была интегральной. Но если вопрос ставить именно так, то я опирался бы в первую очередь на QQ-plot, нежели чем на тест Шапиро-Уилка, т.к. последний ведёт себя подобно другим статистическим тестам - чем больше выборка, тем с большей вероятностью он “поймает” отклонения от нормальности; чем меньше выборка, тем с меньшей вероятностью он обнаружит даже серьезные отклонения от нормальности, хотя мы заинтересованы в обратном. При большой выборке отклонения от нормальности не так страшны, а при маленькой тест все равно ничего не обнаружит. Т.к. идеально нормальных распределений в природе почти не существует, это значит, что при достаточно большой выборке тест Шапиро-Уилка практически всегда будет находить отклонения от нормальности (например QQ-plot для Data_Major_Minerals_Sodium выглядит вполне прилично). Все это делает его во многом малоинформативным при тестировании допущения о нормальности. Это же верно и для других тестов на нормальность (критерий Колмогорова-Смирнова, критерий Андерсона-Дарлинга и др.). Также графически можно оценить нормальность с помощью гистограммы (с наложением поверх функции плотности вероятности для нормального распределённых данных).
+
+## Сравнение групп
+
+1) Сравните группы (переменная **Category**) по каждой переменной (как количественной, так и категориальной). Для каждой переменной выберите нужный критерий и кратко обоснуйте его выбор в комментариях.
+
+```{r}
+rquery.t.test<-function(x, y, var.equal.p, graph = TRUE)
+{
+      var.equal.p<-signif(var.equal.p,1) 
+      
+          if(graph) par(mfrow=c(2,2))
+          # normality test
+          shapiro.px<-normaTest(x, graph, 
+                                hist.title="X - Histogram",
+                                qq.title="X - Normal Q-Q Plot")
+          shapiro.py<-normaTest(y, graph,
+                                hist.title="Y - Histogram",
+                                qq.title="Y - Normal Q-Q Plot")
+          if(shapiro.px < 0.05 | shapiro.py < 0.05){
+              warning("x or y is not normally distributed!",
+                      " Shapiro test p-value : ", shapiro.px,
+                      " (for x) and ", shapiro.py, " (for y)",
+                      " Levene's test p-value :", var.equal.p)
+            }
+   }
+normaTest<-function(x, graph=TRUE, 
+                    hist.title="Histogram", 
+                    qq.title="Normal Q-Q Plot",...)
+  {  
+  # Significance test
+  #++++++++++++++++++++++
+  shapiro.p<-signif(shapiro.test(x)$p.value,1) 
+  
+  if(graph){
+    # Plot : Visual inspection
+    #++++++++++++++++
+    h<-hist(x, col="lightblue", main=hist.title, 
+            xlab="Data values", ...)
+    m<-round(mean(x),1)
+    s<-round(sd(x),1)
+    mtext(paste0("Mean : ", m, "; SD : ", s),
+          side=3, cex=0.8)
+    # add normal curve
+    xfit<-seq(min(x),max(x),length=40)
+    yfit<-dnorm(xfit,mean=mean(x),sd=sd(x))
+    yfit <- yfit*diff(h$mids[1:2])*length(x)
+    lines(xfit, yfit, col="red", lwd=2)
+    # qq plot
+    qqnorm(x, pch=19, frame.plot=FALSE,main=qq.title)
+    qqline(x)
+    mtext(paste0("Shapiro-Wilk, p-val : ", shapiro.p),
+          side=3, cex=0.8)
+  }
+  return(shapiro.p)
+}
+
+sepfoo <- function(var1, var2) {
+  
+  cleaned_data %>%
+    filter({{ var1 }} == "Cookie") %>%
+    pull({{ var2 }}) -> x
+
+  cleaned_data %>%
+    filter({{ var1 }} == "Rice") %>%
+    pull({{ var2 }}) -> y
+  
+  dat <- cleaned_data %>% 
+     select({{ var1 }}, {{ var2 }}) %>% 
+     mutate(var1 = {{ var1 }},
+            var2 = {{ var2 }})
+  
+  var.equal.p = first(car::leveneTest(data = dat, var2 ~ var1)$`Pr(>F)`) 
+  
+  rquery.t.test(x, y, var.equal.p)
+}
+```
+
+
+```{r}
+
+sepfoo(Category, Data_Alpha_Carotene)
+
+```
+
+
+```{r}
+
+sepfoo(Category, Data_Beta_Carotene)
+
+```
+
+
+```{r}
+
+sepfoo(Category, Data_Beta_Cryptoxanthin) 
+
+```
+
+
+```{r}
+sepfoo(Category, Data_Carbohydrate)
+```
+
+
+```{r}
+sepfoo(Category, Data_Cholesterol)
+```
+
+
+```{r}
+sepfoo(Category, Data_Choline)
+```
+
+
+```{r}
+sepfoo(Category, Data_Fiber)
+```
+
+
+```{r}
+sepfoo(Category, Data_Lutein_and_Zeaxanthin)
+```
+
+
+```{r}
+sepfoo(Category, Data_Lycopene)
+```
+
+
+```{r}
+sepfoo(Category, Data_Niacin)
+```
+
+
+```{r}
+sepfoo(Category, Data_Protein)
+```
+
+
+```{r}
+sepfoo(Category, Data_Retinol)
+```
+
+
+```{r}
+sepfoo(Category, Data_Riboflavin)
+```
+
+
+```{r}
+sepfoo(Category, Data_Selenium)
+```
+
+
+```{r}
+sepfoo(Category, Data_Sugar_Total)
+```
+
+
+```{r}
+sepfoo(Category, Data_Thiamin)
+```
+
+
+```{r}
+sepfoo(Category, Data_Water)
+```
+
+
+```{r}
+sepfoo(Category, Data_Fat_Monosaturated_Fat)
+```
+
+
+```{r}
+sepfoo(Category, Data_Fat_Polysaturated_Fat)
+```
+
+
+```{r}
+sepfoo(Category, Data_Fat_Saturated_Fat)
+```
+
+
+```{r}
+sepfoo(Category, Data_Fat_Total_Lipid)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Calcium)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Copper)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Iron)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Magnesium)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Phosphorus)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Potassium)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Sodium)
+```
+
+
+```{r}
+sepfoo(Category, Data_Major_Minerals_Zinc)
+```
+
+
+```{r}
+sepfoo(Category, Data_Vitamins_Vitamin_A_RAE)
+```
+
+
+```{r}
+sepfoo(Category, Data_Vitamins_Vitamin_B12)
+```
+
+
+```{r}
+sepfoo(Category, Data_Vitamins_Vitamin_B6)
+```
+
+
+```{r}
+sepfoo(Category, Data_Vitamins_Vitamin_C)
+```
+
+
+```{r}
+
+sepfoo(Category, Data_Vitamins_Vitamin_E)
+
+```
+
+```{r}
+sepfoo(Category, Data_Vitamins_Vitamin_K)
+```
+
+Для подавляющего большинства параметров не выполняются условия нормальности распределения (тест Шапиро-Уилка, QQ-plot) и одинаковости дисперсии между группами (тест Левина). Априори предположим, что имеет место независимость значений в выборке. Учитывая вышесказанное, кажется уместным для поиска разницы между группами (по переменной Category) использовать тест Манна-Уитни. Для параметра Data_Carbohydrate и Data_Major_Minerals_Zinc дополнительно будет применён t-тест c поправкой Уэлча (p.s: выглядят более менее прилично). 
+
+```{r}
+
+func <- function (x) {with(cleaned_data, wilcox.test(x[Category == "Rice"], x[Category == "Cookie"]))[c("statistic", "p.value")]}
+
+do.call(rbind, lapply(num_part_of_cd, function(x) func (x)))
+
+t.test(data=cleaned_data, Data_Carbohydrate ~ Category)
+t.test(data=cleaned_data, Data_Major_Minerals_Zinc ~ Category)
+```
+
+За исключением некоторых переменных (Data_Beta_Cryptoxanthin, Data_Cholesterol, Data_Major_Minerals_Zinc) справедливо предположить, что две выборки (по переменной Category) взяты из распределений с разным средним в генеральной совокупности.
+
+# Далее идут **необязательные** дополнительные задания, которые могут принести вам дополнительные баллы в том числе в случае ошибок в предыдущих
+
+## Корреляционный анализ
+
+1) Создайте корреляционную матрицу с визуализацией и поправкой на множественные сравнения. Объясните, когда лучше использовать корреляционные матрицы и в чём минусы и плюсы корреляционных исследований.
+
+```{r, fig.height=30, fig.width=10}
+cor_plot <- cleaned_data %>%
+  select(starts_with("Data_")) %>%
+  psych::corr.test(adjust = "BH")           #поправка Бенджамини — Хохберга
+
+corrplot(corr = cor_plot$r,
+         p.mat = cor_plot$p,
+         method = "color",
+         order = "hclust")
+```
+
+Крестиками отмечены статистические незначимые (с p.value > 0.05), без крестиков – статистически значимые коэффициенты корреляции. 
+
+Корреляционные матрицы преимущественно используются:
+1) для удобного обобщения набора данных
+2) для диагностики регрессии
+3) в качестве исходных данных для других анализов, например исследовательский факторный анализ
+
+Плюсы корреляционных исследований:
+- возможность изучить широкий диапазон переменных
+- дает информацию о направлении и силе взаимосвязи между переменным
+- исследование достаточно просто в реализации
+
+Минусы:
+- мало возможностей для установления контроля над переменными
+- нет возможности проанализировать сложные взаимодействия между переменными, если они имеют место быть
+- выявленная корреляция не эквивалентна непосредственной каузальной связи
+
+## Моделирование
+
+1) Постройте регрессионную модель для переменной **Category**. Опишите процесс построения
+
+Сделаем переменную **Category** бинарной и из общей модели со всеми числовыми предикторами удалим наиболее скоррелированные. Для этого воспользуемся функцией vif() из пакета broom - итерационно вызываем эту функцию на модели и удаляем переменную с наибольшим значеним VIF. Повторяем эту процедуру до тех пор пока не останется ни одной переменной с VIF больше 5. 
+
+```{r, warning=FALSE}
+
+cleaned_data %>% 
+  mutate(Category2 = as.integer(ifelse(Category == "Cookie", 0, 1))) %>% 
+  relocate(Category2, .after=Category) %>% 
+  select(Category2, where(is.numeric)) %>% 
+  select(-Nutrient_Data_Bank_Number) -> cleaned_data_m
+
+pre_model <- glm(data = cleaned_data_m, family = "binomial", Category2 ~ .)
+
+# names(car::vif(pre_model))
+
+model <- glm(data = cleaned_data_m, family = "binomial", Category2 ~ . -Data_Carbohydrate -Data_Vitamins_Vitamin_A_RAE -Data_Fat_Total_Lipid -Data_Beta_Carotene -Data_Water -Data_Riboflavin -Data_Vitamins_Vitamin_E -Data_Vitamins_Vitamin_B12 -Data_Protein -Data_Major_Minerals_Phosphorus -Data_Vitamins_Vitamin_B6 -Data_Major_Minerals_Zinc -Data_Major_Minerals_Copper -Data_Vitamins_Vitamin_K -Data_Fiber -Data_Thiamin -Data_Fat_Saturated_Fat -Data_Fat_Polysaturated_Fat -Data_Retinol -Data_Major_Minerals_Magnesium -Data_Choline -Data_Major_Minerals_Sodium) 
+
+```
+
+Следующий шаг - проверка на линейность. Для этого отрисуем графики с logit по оси абцисс и значением той или иной числовой переменной, оставшейся после селекции на предыдущем шаге.
+
+```{r, warning=FALSE, fig.height=10, fig.width=8} 
+probabilities <- predict(model, type = "response")
+logit <- log(probabilities/(1-probabilities))
+predictors <- names(car::vif(model))
+
+cleaned_data_m1 <- cleaned_data_m %>% select(predictors)
+cleaned_data_m1$logit <- logit
+
+cleaned_data_m2 <- cleaned_data_m1 %>% 
+   gather(key = "predictors", value = "predictor.value", -logit)
+  
+ggplot(cleaned_data_m2, aes(logit, predictor.value))+
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_smooth(method = "loess") + 
+  theme_bw() +
+  facet_wrap(~predictors, scales = "free_y", ncol=4)
+
+```
+Перемеенная Data_Selenium не свзана линейно с logit (~= как мне кажется), потому удалим этот предиктор. 
+
+```{r}
+
+model2 <- glm(data = cleaned_data_m, family = "binomial", Category2 ~ Data_Alpha_Carotene + Data_Beta_Cryptoxanthin + Data_Cholesterol + Data_Lutein_and_Zeaxanthin + Data_Lycopene + Data_Niacin + Data_Sugar_Total + Data_Fat_Monosaturated_Fat + Data_Major_Minerals_Calcium + Data_Major_Minerals_Iron + Data_Major_Minerals_Potassium + Data_Vitamins_Vitamin_C)
+
+```
+
+Воспользуемся built-in функцией step(), чтобы найти наиболее значимые предикторы для предсказания **Category**. Будем ориентироваться на информационный критерий Акаике (чем меньше, тем лучше). Также посчитаем Байесовский критерий.
+
+```{r, warning=FALSE}
+best_model <- MASS::stepAIC(model2,trace = FALSE)
+summary(best_model)
+AIC(best_model)
+BIC(best_model)
+```
+
+
+
+
