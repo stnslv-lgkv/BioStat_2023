@@ -1,0 +1,170 @@
+---
+title: "homework"
+author: "Stanislav Legkovoy"
+date: "`r Sys.Date()`"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libs, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(clinPK)
+library(pROC)
+```
+
+```{r data}
+trauma <- read.csv("data/trauma.csv")
+```
+
+## Задание №1
+
+Предварительно преобразуем данные, переведя параметры рост (Height) и вес (Weight) субъектов в соответствии с нормальной метрической системой мер - сантиметры и кг соответственно
+  + поменяем тип данных с текстового на числовой для уровня гемоглобина (Hb), переведя в NA нулевые значения
+  + рассчитаем описательные статистики
+  + рассчитаем коэффициент массы тела BMI
+  + отметим субъектов чей BMI больше 30 (BMIgt30)
+
+```{r data-processing}
+
+trauma1 <- trauma %>% 
+   select(-X) %>% 
+   mutate(Height_cm = round(inch2cm(as.numeric(gsub('"', "", Height))),1),
+          Weight_kg = round(lbs2kg(as.numeric(gsub(',', ".", Weight))),1),
+          Hb_num = if_else(Hb != '0', as.numeric(gsub(',', ".", Hb)), NA_integer_)) %>% 
+   select(-c("Height", "Weight", "Hb"))
+
+psych::describe(trauma1) %>% 
+  as_tibble(rownames = "param") %>% 
+  filter(!param %in% c("id", "Name*", "Sex*"))
+
+trauma2 <- trauma1 %>% 
+  mutate(BMI = round(calc_bmi(Weight_kg,Height_cm),1),
+         Hb_status = if_else(Sex == "Female", if_else(between(Hb_num, 12, 14), 0, 1), if_else(between(Hb_num, 13.5, 16), 0, 1)),
+         BMIgt30 = if_else(BMI > 30, 1, 0)) 
+```
+
+Рассчитаем: 
+  1) количество пациентов
+  2) процент случаев среди людей 
+со сниженным гемоглобина (мужчин и женщин отдельно)
+
+```{r task-1}
+
+trauma2 %>% 
+  filter(!is.na(Hb_status)) %>% 
+  group_by(Sex, Hb_status) %>% 
+  count()
+
+trauma2 %>% 
+  filter(!is.na(Hb_status)) %>% 
+  group_by(Sex) %>% 
+  summarise(mean_Hb_status = mean(Hb_status))
+```
+Можем резюмировать, что большинство женщин (~60%) в той или иной степени обнаруживают анемию в анамнезе; среди мужчин - 37% таковых.
+
+## Задание №2
+
+Рассчитаем: 
+  1) среднее значение и стандартное отклонение коээфициента BMI среди всех пострадавших от самоката; 
+  2) количество людей, чей BMI больше 30 (== страдающие серьёзной степенью ожирения).
+
+```{r task-2}
+trauma2 %>% 
+  summarise(BMI_mean = mean(BMI), 
+            BMI_SD = sd(BMI))
+
+trauma2 %>% 
+  group_by(BMIgt30) %>% 
+  count()
+```
+Подавляещее большинство людей имеют BMI меньше 30 (>93%). Ожирение диагностировано у ~7% пострадавших.
+В среднем коэффициент BMI пострадавших равен 26, стандартное отклонение - 2.57.
+
+## Задание №3
+
+```{r task-3, message=FALSE}
+
+death_Hb_roc <- roc(Death ~ Hb_num, data=trauma2, ci=TRUE)
+
+ggroc(death_Hb_roc,  color="#008491", size=1)+
+  scale_y_continuous(expand=c(0,0),
+                     breaks=seq(0,1,0.2))+
+  scale_x_reverse(expand=c(0,0),
+                  breaks=seq(0,1,0.2))+
+  labs(y="Sensitivity", x="Specificity",
+       title="ROC curve\n(Death vs Hg_level)")+
+  theme_classic()+
+  theme(axis.title = element_text(face="italic"),
+        plot.title = element_text(face="bold", hjust = 0.5, color="grey40"))
+```
+
+Данная форма кривой может быть обусловлена характером связи (низкая/умеренная) между числовым уровнем гемоглобина при поступлении (Hg_num) и изучаемым исходом (наступление/не наступление смерти). Может статьтся так, что вследствии травмы пострадавший/-ая потерял/-а много крови (постгемморагическая анемия, острая или острая вкупе с хронической (например как бывает у женщин на фоне обильных месячных)), в результате чего вероятность умереть может повыситься.  
+
+## Задание №4
+
+Площадь под ROC-кривой, 95% двусторонний ДИ для площади под ROC-кривой.
+
+```{r task-4, message=FALSE}
+
+death_Hb_roc$auc
+
+death_Hb_roc$ci
+
+```
+
+## Задание №5
+
+Результаты расчёта порогового значения, чувствительности и специфичности для шкалы комы Глазго отображены на графике ниже. 
+
+```{r task-5, message=FALSE}
+
+death_gsc_roc <- roc(Death ~ GSC, data = trauma2, ci = TRUE)
+
+best_death_gsc_roc <- death_gsc_roc %>% 
+  coords(x = "best", best.method = "closest.topleft") %>%
+  mutate(label_ = sprintf("Threshold for GSC = %.1f\n  Sensitivity = %.1f\n  Specificity = %.1f",
+                       threshold, sensitivity, specificity))
+
+ggroc(death_gsc_roc, color = "#4b0082", size = 1) +
+  geom_line(aes(x = x, y = y),
+            data.frame(x = c(1, best_death_gsc_roc$specificity),
+                       y = best_death_gsc_roc$sensitivity),
+            linetype = "longdash", linewidth = 0.5, color =  "grey50") +
+  geom_line(aes(x = x, y = y),
+            data.frame(x = best_death_gsc_roc$specificity,
+                       y = c(0, best_death_gsc_roc$sensitivity)),
+            linetype = "longdash", linewidth = 0.5, color =  "grey50") +
+  geom_point(aes(x = specificity, y = sensitivity), best_death_gsc_roc,
+             color = "#fffA0e", size = 2) +
+  geom_text(aes(x = specificity, y = sensitivity, label = label_),
+            best_death_gsc_roc, hjust = -0.1, vjust = 1) +
+  scale_y_continuous(expand = c(0,0),
+                     breaks = seq(0,1,0.2)) +
+  scale_x_reverse(expand = c(0,0),
+                  breaks = seq(0,1,0.2)) +
+  labs(x = "Specificity", y = "Sensitivity",
+       title = "ROC curve\n(Death vs. GSC)") +
+  theme_classic() +
+  theme(axis.title = element_text(face = "italic"),
+        plot.title = element_text(face = "bold", hjust = 0.5, color="grey40"))
+
+```
+
+## Задание №6
+
+```{r task-6, message=FALSE}
+
+trauma2 %>% 
+  select(-id, -Name, -Sex, -Hb_status, -BMIgt30) %>% 
+  pivot_longer(cols=-Death, names_to="Var") %>% 
+  group_by(Var) %>% 
+  summarize(AUC = roc(Death, value, ci=T)$ci[2]) %>% 
+  arrange(-AUC)
+
+```
+Исходя из полученных результатов, у параметра балл по шкале комы FOUR (FOUR) максимальная площадь под ROC-кривой т.к. этот параметр, вероятно, в силу своей эффективности (относительно оценок неврологического статуса, рефлексов ствола мозга, дыхательного паттерна и т.д.) даёт наиболее точное предсказание исхода (смерть/выживание пострадавшего) при черепно-мозговой травме и, хоть и не намного, даже превосходит другую шкалу - шкалу комы Глазго (GSC). Наименьшую же площадь даёт числовая переменная роста (Height_cm, после ряда преобразований) - скорее всего потому, что как таковую связь между вышеуказанными проследить затруднительно в данном контексте. 
