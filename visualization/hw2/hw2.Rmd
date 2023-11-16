@@ -1,0 +1,304 @@
+---
+title: "Homework#2"
+author: "Stanislav Legkovoy"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    keep_md: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r libs, echo=FALSE, message=FALSE}
+library(tidyverse)
+library(plotly)
+library(rstatix)
+library(corrplot)
+library(ggpubr)
+library(GGally)
+library(factoextra)
+library(pheatmap)
+library(FactoMineR)
+library(ggbiplot)
+library(tidymodels)
+library(embed)
+```
+
+## Задание 1 
+
+```{r data}
+
+lifexp <- readRDS("data/life_expectancy_data.RDS")
+
+```
+
+## Задание 2 
+
+```{r task-2}
+
+plot_ly(data = lifexp %>% 
+          mutate(lbl = sprintf("Unemployment: %.2f Life expectancy: %.1f",
+                               Unemployment, `Life expectancy`)),
+        x = ~Unemployment, y = ~`Life expectancy`, 
+        type = 'scatter', mode = "markers", 
+        color = ~continent,
+        text = ~lbl, hoverinfo = "text",
+        marker = list(size = 10), alpha = 0.5) %>%
+  layout(xaxis = list(title = "Unemployment, %"),
+         yaxis = list(title = "Life expectancy, year", zeroline = FALSE),
+         title = "Life expectancy vs. Unemployment, by Continent")
+
+```
+
+## Задание 3
+
+```{r task-3}
+
+lifexp1 <- lifexp %>% 
+  filter(continent %in% c("Africa", "Americas")) 
+
+stat.test <- lifexp1 %>% 
+  rstatix::t_test(`Life expectancy` ~ continent) %>% 
+  add_xy_position(x = "continent")
+
+ggboxplot(
+  lifexp1, 
+  x = "continent", y = "Life expectancy", 
+  ylab = "Life expectancy, year", xlab = "Continent", 
+  add = "jitter"
+  ) + 
+  labs(subtitle = get_test_label(stat.test, detailed = TRUE)) + 
+  stat_pvalue_manual(stat.test, tip.length = 0) 
+```
+
+## Задание 4
+
+```{r task-4-1, fig.height=10, fig.width=10, warning=FALSE}
+
+lifexp2 <- lifexp %>% 
+  select(is.integer | is.numeric, -Year)
+
+cor_plot <- lifexp2 %>%
+  select(everything()) %>%
+  psych::corr.test(adjust = "BH")  
+
+corrplot(corr = cor_plot$r,
+         p.mat = cor_plot$p,
+         method = "color",
+         order = "hclust")
+
+```
+
+```{r task-4-2, fig.width=25, fig.height=25}
+
+cor_plot2 <- ggpairs(lifexp2,
+        title = 'Correlations in lifeExp dataset',progress = F) +
+    theme_minimal() +
+    scale_fill_manual(values = c('#69b3a2')) +
+    scale_colour_manual(values = c('#69b3a2'))
+
+cor_plot2
+
+```
+
+## Задание 5
+
+```{r task-5, warning=FALSE}
+
+lifexp2 <- lifexp %>%
+  column_to_rownames('Country')%>% 
+  select(is.integer | is.numeric, -Year)
+
+lifexp2_scaled <- scale(lifexp2) %>% round(2)
+lifexp2_dist<- dist(lifexp2_scaled, 
+                        method = "euclidean")
+
+as.matrix(lifexp2_dist)[1:6,1:6]
+
+lifexp2_hc_ward <- hclust(d = lifexp2_dist, 
+                        method = "ward.D2")
+
+fviz_dend(lifexp2_hc_ward, 
+          cex = 0.4, main = "Dendrogram, All variables numeric, Ward's method",
+          k=5, k_colors = c("#cc0337", "#010d85", "#37953f", "#f98866", "#5BC7F2"),
+          color_labels_by_k = TRUE,
+          rect = TRUE)
+
+fviz_dend(lifexp2_hc_ward, 
+          cex = 0.4, main = "Dendrogram, All variables numeric, Ward's method(circular)",
+          k=5, k_colors = c("#cc0337", "#010d85", "#37953f", "#f98866", "#5BC7F2"),
+          color_labels_by_k = TRUE,
+          type = "circular")
+
+```
+
+## Задание 6
+
+
+```{r task-6}
+
+pheatmap(lifexp2_scaled, 
+         show_rownames = FALSE, 
+         clustering_distance_rows = lifexp2_dist,
+         clustering_method = "ward.D2", 
+         cutree_rows = 5,
+         cutree_cols = length(colnames(lifexp2_scaled)),
+         angle_col = 45, 
+         main = "Dendrograms for clustering rows and columns with heatmap")
+
+```
+
+Строки объединены в 5 кластеров (исходя из дендрограммы выше). Довольно ярко выражена однородность между переменными GDP и GNI (для всех кластеров). Для первого и второго кластеров подобная однородность прослеживается для переменной Per Capita. Весьма примечателен второй клатер, включающий в себя узкую группу наблюдений. Также более менее однородным является первый и второй кластера для переменнной Hospital beds. Для переменных Measless Immunization, DPT Immunization и HepB3 Immunization ситуация аналогична предыдущей (особенно первый кластер).
+
+## Задание 7
+
+```{r task-7}
+
+lifexp_full.pca <- prcomp(lifexp2, 
+                        scale = T,
+                        ) 
+
+summary(lifexp_full.pca)
+
+fviz_eig(lifexp_full.pca, addlabels = T, ylim = c(0, 40))
+
+fviz_pca_var(lifexp_full.pca, select.var = list(contrib = 5), col.var = "contrib")
+
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 1, top = 20) # 1
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 2, top = 20) # 2
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 3, top = 20) # 3
+```
+
+Наибольший вклад в изменении вариативности наблюдений вносит первая компонента PC1 (39.9%). Далее представлен PCA-plot, для которого число наиболее важных переменных для двух главных компонент сокращено до 5 и выделен вклад каждой из них (посредством длины стрелки переменной и её направления, всего 3 группы), при этом переменная Infant Mortality направлена обратно пропорциональна Immunization переменным. Также были отдельно отображены конкретные переменные, вклад которых наиболее существенен для первых 3 главных компонент (особенно приятен взору разбор третий компоненты, где первые две переменные объясняют львиную долю её вариации).
+
+## Задание 8
+
+```{r task-8}
+
+plott <- ggbiplot(lifexp_full.pca, 
+         scale=0, 
+         groups = as.factor(lifexp$continent),
+         ellipse = T,
+         alpha = 0.2,
+         labels = rownames(lifexp2), 
+         labels.size = 2.1) +
+  theme_minimal()
+
+plott
+
+ggplotly(plott)
+```
+
+## Задание 9
+
+Можно резюмировать, что алгоритм PCA на этих данных сошёлся довольно скверно, т.к. две первые главные компоненты объясняют чуть более 50% изменений в данных - далее прирост становится и вовсе примерно одинаковым, постепенно уменьшаясь (смотри на строку Cumulative Proportion в таблице Importance of components) - можно предположить, что в данных как таковых корреляций между переменными и скрытых факторных переменных нет ==> потенциально доступен для использования регрессионный анализ. 
+
+## Задание 10
+
+```{r task-10}
+
+umap_prep <- recipe(~., data = lifexp2) %>% 
+  step_normalize(all_predictors()) %>% 
+  step_umap(all_predictors()) %>%  
+  prep() %>%  
+  juice() 
+
+umap_prep %>%
+  ggplot(aes(UMAP1, UMAP2)) + 
+  geom_point(aes(color = lifexp$continent), 
+             alpha = 0.7, size = 2) +
+  labs(color = NULL) 
+
+```
+
+Алгоритмы PCA и UMAP отработали схожим образом, дивергируя наблюдения по континентам приблизительно в одной манере - например, континенты Африка и Европа в обоих случаях находятся по разные стороны (в сравнении с графиком из задания 8) шкалы UMAP1 (аналог PCA1).
+
+## Задание 11
+
+```{r task-11-0}
+
+pca_run <- function(cols) {
+  
+  dat <- lifexp2 %>% select(-cols)
+
+  lifexp_full.pca <- prcomp(dat, 
+                          scale = T) 
+  
+  print(summary(lifexp_full.pca))
+  
+  print(fviz_eig(lifexp_full.pca, addlabels = T, ylim = c(0, 40)))
+  
+  print(fviz_pca_var(lifexp_full.pca, select.var = list(contrib = 5), col.var = "contrib"))
+  
+  print(fviz_contrib(lifexp_full.pca, choice = "var", axes = 1, top = 20)) # 1
+  print(fviz_contrib(lifexp_full.pca, choice = "var", axes = 2, top = 20)) # 2
+  print(fviz_contrib(lifexp_full.pca, choice = "var", axes = 3, top = 20)) # 3
+  
+  plott <- ggbiplot(lifexp_full.pca, 
+         scale=0, 
+         groups = as.factor(lifexp$continent),
+         ellipse = T,
+         alpha = 0.2) +
+  theme_minimal()
+
+  print(plott)
+
+}
+  
+```
+
+
+```{r task-11-1, warning=FALSE}
+vec1 <- c("Life expectancy", "GDP", "Per Capita", "Hospital beds", "Sucide Rate")
+pca_run(vec1) 
+```
+
+```{r task-11-2, warning=FALSE}
+vec2 <- c("Unemployment", "Clean fuels and cooking technologies", "Measles Immunization", "Basic sanitation services", "Rural population")
+pca_run(vec2) 
+```
+
+```{r task-11-3, warning=FALSE}
+vec3 <- c("GNI", "Mortality caused by road traffic injury", "DPT Immunization", "Tuberculosis treatment", "Non-communicable Mortality", "Rural population")
+pca_run(vec3) 
+```
+
+В целом мы можем наблюдать скачки во вкладе тех или иных компонент в объяснении вариативности данных (что видно как по графику 1, так и по таблице Importance of components), но везде первая главная компонента остаётся самой значимой в процентном отношении. На PCI-плотах могут становиться значимые другие переменные после удаления случайных. Понятно, что также будет отличаться вклад тех или иных переменных в первый, второй и третий компоненты. Что касается biplot'ов тут можно лицезреть определённое единнобразие в расположение эллипсов, группирующих наблюдения по континентам (исключая набор переменных-стрелок, конечно).
+
+## Задание 12
+
+```{r task-12}
+
+lifexp3 <- lifexp %>% 
+  mutate(african_flag = if_else(continent == "Africa", 1, 0),
+         oceania_flag = if_else(continent == "Oceania", 1, 0)) %>% 
+  select(is.integer | is.numeric, -Year)
+
+lifexp_full.pca <- prcomp(lifexp3, 
+                        scale = T) 
+
+summary(lifexp_full.pca)
+
+fviz_eig(lifexp_full.pca, addlabels = T, ylim = c(0, 40))
+
+fviz_pca_var(lifexp_full.pca, select.var = list(contrib = 5), col.var = "contrib")
+
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 1, top = 20) # 1
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 2, top = 20) # 2
+fviz_contrib(lifexp_full.pca, choice = "var", axes = 3, top = 20) # 3
+
+plott <- ggbiplot(lifexp_full.pca, 
+         scale=0, 
+         groups = as.factor(lifexp$continent),
+         ellipse = T,
+         alpha = 0.2) +
+theme_minimal()
+
+plott
+```
+
+
+Исходя из полученных результатов, можно предположить, что добавление dummy-переменных не оказало существенного влияния на объяснение вариативности данных (но заметен определённый вклад dummy-переменной в PC1 - той что маркирует записи из африканского континента). Потенциально, имея ввиду тот факт, что переменная continent не числовая и не участвует в анализе PCA, внедрение подобных dummy-деривативов могло бы улучшить анализ. Однако, с другой стороны, эти dummy переменные в какой-то степени дублируют уже имеющуюся переменную continent, которая используется для группировки наблюдений. При этом надо заметить, что такие dummy содержат меньше информации, чем оригинальные переменные.  
