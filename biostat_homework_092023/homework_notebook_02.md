@@ -4,21 +4,32 @@ output:
   html_document: 
     keep_md: yes
 author: "Stanislav Legkovoy"
-date: "2023-10-14"
+date: "2023-11-20"
 ---
 
 
 
+##### Список изменений (каждый ответ сопровождён '>>')
+- измененён метод подсчёта NA (количество переменных с NA в датасете и число наблюдений с NA в каждой такой переменной) 
+- убрана легенда из графиков с боксплотами с наложенными beeplots - за ненадобностью 
+- посчитан процент от общего количества внутри данной группы
+- дабы уменьшить размер RMD-файла, была имплементирована работа функции sepfoo в цикле (*shame on me за предыдущий ручной вызов функции для каждой переменной*)
+
+
 # Чтение данных
 
-В вашем варианте нужно использовать датасет food.
+В вашем варианте нужно использовать датасет food. +
+
+> Все верно
 
 
 ```r
 food <- read.csv("data/raw/food.csv")
 ```
 
-# Выведите общее описание данных
+# Выведите общее описание данных +
+
+> Все верно, выбрано как описание статистическое, так и в виде первых значений переменных в таблице
 
 
 ```r
@@ -193,7 +204,7 @@ psych::describe(food)
 
 # Очистка данных
 
-1) Уберите переменные, в которых пропущенных значений больше 20% или уберите субъектов со слишком большим количеством пропущенных значений. Или совместите оба варианта. Напишите обоснование, почему вы выбрали тот или иной вариант:
+1) Уберите переменные, в которых пропущенных значений больше 20% или уберите субъектов со слишком большим количеством пропущенных значений. Или совместите оба варианта. Напишите обоснование, почему вы выбрали тот или иной вариант: +
 
 
 ```r
@@ -235,9 +246,13 @@ food %>%
 ```
 
 **Обоснование**: 
-Исходя из текущих реалий, в данном датасете отсутствуют пропущенные значения, т.е нет нужды в удалении какой-то информации. Стратегия обработки пропущенных значений во многом зависит от того, какого харакетра пропуски имеют место в наборе данных (MCAR, MAR, MNAR) и каков объём пропусков - если при удалении значения используемого статистического теста изменяются несущественно, то удаление безопасно, но, вероятно, мощность теста будет сниженной. Я бы не стал удалять столбец (==поле. атрибут) таблицы при указанных 20% пропусков, но задумался бы об этом при достижении 50-60%, особенно если переменная не является значительной для анализа. 
+Исходя из текущих реалий, в данном датасете отсутствуют пропущенные значения, т.е нет нужды в удалении какой-то информации. Стратегия обработки пропущенных значений во многом зависит от того, какого харакетра пропуски имеют место в наборе данных (MCAR, MAR, MNAR) и каков объём пропусков - если при удалении значения используемого статистического теста изменяются несущественно, то удаление безопасно, но, вероятно, мощность теста будет сниженной. Я бы не стал удалять столбец (==поле, атрибут) таблицы при указанных 20% пропусков, но задумался бы об этом при достижении 50-60%, особенно если переменная не является значительной для анализа. 
 
-2) Переименуйте переменные в человекочитаемый вид (что делать с пробелами в названиях?);
+> Обоснование решения и возможных сценариев работы с пропусками разумно
+
+2) Переименуйте переменные в человекочитаемый вид (что делать с пробелами в названиях?); +
+
+> Snakecase - отличный выбор
 
 
 ```r
@@ -245,8 +260,13 @@ names(food2) <- gsub("\\.", "_", names(food2))
 names(food2) <- sub("___", "_", names(food2))
 ```
 
-3) В соответствии с описанием данных приведите переменные к нужному типу (numeric или factor);
-4) Отсортируйте данные по углеводам по убыванию;  
+
+3) В соответствии с описанием данных приведите переменные к нужному типу (numeric или factor); +
+
+> Все конвнертации выбраны разумно - в том числе уникальных переменных (отсутствие конвертации в их случае - отличный выбор в силу их неинформативности)
+
+4) Отсортируйте данные по углеводам по убыванию; +
+> Все верно
 
 
 ```r
@@ -256,7 +276,8 @@ food2 %>%
   arrange(desc(Data_Carbohydrate))-> food3
 ```
 
-5) Сохраните в файл outliers.csv субъектов, которые являются выбросами (например, по правилу трёх сигм) — это необязательное задание со звёздочкой; 
+5) Сохраните в файл outliers.csv субъектов, которые являются выбросами (например, по правилу трёх сигм) — это необязательное задание со звёздочкой;  +
+> Фильтрация выполнена в соответствии с правилом трёх сигм - все верно
 
 
 ```r
@@ -270,8 +291,11 @@ food3 %>%
   write_csv("data/outliers.csv")
 ```
 
-6) Отфильтруйте датасет так, чтобы остались только Rice и Cookie (переменная Category и есть группирующая);
-7) Присвойте получившийся датасет переменной "cleaned_data".
+6) Отфильтруйте датасет так, чтобы остались только Rice и Cookie (переменная Category и есть группирующая); +
+> Фильтрация проведена верно, вспомогательные переменные с прошлых пунктов предусмотрительно удалены
+
+7) Присвойте получившийся датасет переменной "cleaned_data". +
+> Датасет присвоен нужной переменной
 
 
 ```r
@@ -280,7 +304,8 @@ cleaned_data <- food3 %>%
   filter(Category %in% c("Rice", "Cookie"))
 ```
 
-# Сколько осталось переменных?
+# Сколько осталось переменных? +
+> Эффективный и простой способ
 
 
 ```r
@@ -291,7 +316,8 @@ ncol(cleaned_data)
 ## [1] 38
 ```
 
-# Сколько осталось случаев?
+# Сколько осталось случаев? +
+> Эффективный и простой способ
 
 
 ```r
@@ -302,7 +328,8 @@ nrow(cleaned_data)
 ## [1] 243
 ```
 
-# Есть ли в данных идентичные строки?
+# Есть ли в данных идентичные строки? +
+> Эффективный и простой способ
 
 
 ```r
@@ -313,22 +340,75 @@ sum(duplicated(cleaned_data))
 ## [1] 0
 ```
 
-# Сколько всего переменных с пропущенными значениями в данных и сколько пропущенных точек в каждой такой переменной?
+# Сколько всего переменных с пропущенными значениями в данных и сколько пропущенных точек в каждой такой переменной? -
+
+> Задача не выполнена - нет ответа на вопрос о количестве в разбиении по переменным и в общем
+
+>> переделано (20NOV2023)
 
 
 ```r
-all(is.na(cleaned_data))
+# Сколько всего переменных с пропущенными значениями в данных
+cleaned_data %>% 
+  select(where(function(x) any(is.na(x)))) %>% 
+  ncol()
 ```
 
 ```
-## [1] FALSE
+## [1] 0
+```
+
+```r
+# Cколько пропущенных точек в каждой такой переменной?
+sapply(cleaned_data, function(x) sum(is.na(x)))
+```
+
+```
+##                       Category                    Description 
+##                              0                              0 
+##      Nutrient_Data_Bank_Number            Data_Alpha_Carotene 
+##                              0                              0 
+##             Data_Beta_Carotene        Data_Beta_Cryptoxanthin 
+##                              0                              0 
+##              Data_Carbohydrate               Data_Cholesterol 
+##                              0                              0 
+##                   Data_Choline                     Data_Fiber 
+##                              0                              0 
+##     Data_Lutein_and_Zeaxanthin                  Data_Lycopene 
+##                              0                              0 
+##                    Data_Niacin                   Data_Protein 
+##                              0                              0 
+##                   Data_Retinol                Data_Riboflavin 
+##                              0                              0 
+##                  Data_Selenium               Data_Sugar_Total 
+##                              0                              0 
+##                   Data_Thiamin                     Data_Water 
+##                              0                              0 
+##     Data_Fat_Monosaturated_Fat     Data_Fat_Polysaturated_Fat 
+##                              0                              0 
+##         Data_Fat_Saturated_Fat           Data_Fat_Total_Lipid 
+##                              0                              0 
+##    Data_Major_Minerals_Calcium     Data_Major_Minerals_Copper 
+##                              0                              0 
+##       Data_Major_Minerals_Iron  Data_Major_Minerals_Magnesium 
+##                              0                              0 
+## Data_Major_Minerals_Phosphorus  Data_Major_Minerals_Potassium 
+##                              0                              0 
+##     Data_Major_Minerals_Sodium       Data_Major_Minerals_Zinc 
+##                              0                              0 
+##    Data_Vitamins_Vitamin_A_RAE      Data_Vitamins_Vitamin_B12 
+##                              0                              0 
+##       Data_Vitamins_Vitamin_B6        Data_Vitamins_Vitamin_C 
+##                              0                              0 
+##        Data_Vitamins_Vitamin_E        Data_Vitamins_Vitamin_K 
+##                              0                              0
 ```
 
 # Описательные статистики
 
 ## Количественные переменные
 
-1) Рассчитайте для всех количественных переменных для каждой группы (Category):
+1) Рассчитайте для всех количественных переменных для каждой группы (Category): +
 
 1.1) Количество значений;
 
@@ -349,6 +429,9 @@ all(is.na(cleaned_data))
 1.9) Максимум;
 
 1.10) 95% ДИ для среднего - задание со звёздочкой.
+
+
+> Все посчитано верно
 
 
 ```r
@@ -398,28 +481,32 @@ cleaned_data %>%
 
 1) Рассчитайте для всех категориальных переменных для каждой группы (Category):
 
-1.1) Абсолютное количество;
+1.1) Абсолютное количество; +
 
 1.2) Относительное количество внутри группы;    *not done*
 
-1.3) 95% ДИ для доли внутри группы - задание со звёздочкой.   *not done*
+1.3) 95% ДИ для доли внутри группы - задание со звёздочкой. 
 
 В наших данных всего одна категориальная перменная, потому не представляется расчёт пунктов 1.2 и 1.3 (p.s.: вероятно, я что-то понял превратно)
+
+> В 1.2 нужно было посчитать процент от общего количества внутри данной группы
+
+>> посчитан и добавлен процент (19NOV2023) 
 
 
 ```r
 cleaned_data %>% 
   group_by(Category) %>% 
-  count(Category)
+  summarise(n=n()) %>% 
+  mutate(rel_pct=paste0(round(n*100/sum(n), 2), "%"))
 ```
 
 ```
-## # A tibble: 2 × 2
-## # Groups:   Category [2]
-##   Category     n
-##   <fct>    <int>
-## 1 Cookie     100
-## 2 Rice       143
+## # A tibble: 2 × 3
+##   Category     n rel_pct
+##   <fct>    <int> <chr>  
+## 1 Cookie     100 41.15% 
+## 2 Rice       143 58.85%
 ```
 
 # Визуализация
@@ -427,10 +514,13 @@ cleaned_data %>%
 ## Количественные переменные
 
 1) Для каждой количественной переменной сделайте боксплоты по группам. Расположите их либо на отдельных рисунках, либо на одном, но читаемо;
+> Боксплоты построены читаемо на одном графике - учтены размеры графика, достаточные для обеспечения читаемости
 
-2) Наложите на боксплоты beeplots - задание со звёздочкой.               
+2) Наложите на боксплоты beeplots - задание со звёздочкой.  
+> Beeplots наложены
 
-3) Раскрасьте боксплоты с помощью библиотеки RColorBrewer.           
+3) Раскрасьте боксплоты с помощью библиотеки RColorBrewer. 
+> Функции использованы
 
 
 ```r
@@ -446,7 +536,7 @@ df.long1 <- cleaned_data %>%
 ggplot(data = df.long1, aes(x = Category, y = value, fill = Category)) +
   geom_boxplot(outlier.shape = NA) +
   scale_fill_manual(values=c("slateblue3", "springgreen3"))+
-  theme(legend.position="bottom") +
+  theme(legend.position="none") +                                     #19NOV2023
   geom_beeswarm(cex=3, size=0.1) +
   facet_wrap(facets = ~variable, scales = 'free', ncol=3)
 ```
@@ -464,7 +554,9 @@ ggplot(data = df.long1, aes(x = Category, y = value, fill = Category)) +
 
 ## Категориальные переменные
 
-1) Сделайте подходящие визуализации категориальных переменных. Обоснуйте, почему выбрали именно этот тип.
+1) Сделайте подходящие визуализации категориальных переменных. Обоснуйте, почему выбрали именно этот тип. +
+
+> Выбор обоснован, диаграмма подобрана оптимальная - отображает и пропорцию, и количество
 
 
 ```r
@@ -481,7 +573,9 @@ ggplot(data=cleaned_data,  aes(x=Category, fill=Category)) +
 
 ## Проверка на нормальность
 
-1) Оцените каждую переменную на соответствие нормальному распределению с помощью теста Шапиро-Уилка. Какие из переменных являются нормальными и как как вы это поняли?
+1) Оцените каждую переменную на соответствие нормальному распределению с помощью теста Шапиро-Уилка. Какие из переменных являются нормальными и как как вы это поняли? +
+
+> Дана верная интерпретация и обоснование ответа
 
 
 ```r
@@ -531,7 +625,10 @@ do.call(rbind, lapply(num_part_of_cd, function(x) shapiro.test(x)[c("statistic",
 ```
 Судя по результатам работы критерия Шапиро-Уилка в датасете нет ни одной числовой переменной, которая была бы распределена нормально (значение p.value << 0.05).
 
-2) Постройте для каждой количественной переменной QQ-плот. Отличаются ли выводы от теста Шапиро-Уилка? Какой метод вы бы предпочли и почему?
+2) Постройте для каждой количественной переменной QQ-плот. Отличаются ли выводы от теста Шапиро-Уилка? Какой метод вы бы предпочли и почему? +
+
+> Увидел ответ на данный вопрос в следующем - лучше писать ответ к вопросу, на который он дается. Ответ верный, решение корректное.
+
 
 
 ```r
@@ -548,18 +645,20 @@ ggplot(data = df.long1, aes(sample = value, color = variable)) +
 
 ![](homework_notebook_02_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
-3) Ниже напишите, какие ещё методы проверки на нормальность вы знаете и какие у них есть ограничения.
+3) Ниже напишите, какие ещё методы проверки на нормальность вы знаете и какие у них есть ограничения. +
 
 **Напишите текст здесь**
 Для оценки нормальности распределения данных я скорее предпочёл бы не полагаться на какой-то единственный метод проверки, а учитывать результаты нескольких, т.е. чтобы оценка была интегральной. Но если вопрос ставить именно так, то я опирался бы в первую очередь на QQ-plot, нежели чем на тест Шапиро-Уилка, т.к. последний ведёт себя подобно другим статистическим тестам - чем больше выборка, тем с большей вероятностью он “поймает” отклонения от нормальности; чем меньше выборка, тем с меньшей вероятностью он обнаружит даже серьезные отклонения от нормальности, хотя мы заинтересованы в обратном. При большой выборке отклонения от нормальности не так страшны, а при маленькой тест все равно ничего не обнаружит. Т.к. идеально нормальных распределений в природе почти не существует, это значит, что при достаточно большой выборке тест Шапиро-Уилка практически всегда будет находить отклонения от нормальности (например QQ-plot для Data_Major_Minerals_Sodium выглядит вполне прилично). Все это делает его во многом малоинформативным при тестировании допущения о нормальности. Это же верно и для других тестов на нормальность (критерий Колмогорова-Смирнова, критерий Андерсона-Дарлинга и др.). Также графически можно оценить нормальность с помощью гистограммы (с наложением поверх функции плотности вероятности для нормального распределённых данных).
 
+> Вкратце, но описаны другие методы и их ограничения
+
 ## Сравнение групп
 
-1) Сравните группы (переменная **Category**) по каждой переменной (как количественной, так и категориальной). Для каждой переменной выберите нужный критерий и кратко обоснуйте его выбор в комментариях.
+1) Сравните группы (переменная **Category**) по каждой переменной (как количественной, так и категориальной). Для каждой переменной выберите нужный критерий и кратко обоснуйте его выбор в комментариях. +
 
 
 ```r
-rquery.t.test<-function(x, y, var.equal.p, graph = TRUE)
+rquery.t.test<-function(x, y, var.equal.p, main_title, graph = TRUE)
 {
       var.equal.p<-signif(var.equal.p,1) 
       
@@ -567,10 +666,12 @@ rquery.t.test<-function(x, y, var.equal.p, graph = TRUE)
           # normality test
           shapiro.px<-normaTest(x, graph, 
                                 hist.title="X - Histogram",
-                                qq.title="X - Normal Q-Q Plot")
+                                qq.title="X - Normal Q-Q Plot", 
+                                main_title = main_title)
           shapiro.py<-normaTest(y, graph,
                                 hist.title="Y - Histogram",
-                                qq.title="Y - Normal Q-Q Plot")
+                                qq.title="Y - Normal Q-Q Plot",
+                                main_title = main_title)
           if(shapiro.px < 0.05 | shapiro.py < 0.05){
               warning("x or y is not normally distributed!",
                       " Shapiro test p-value : ", shapiro.px,
@@ -580,7 +681,8 @@ rquery.t.test<-function(x, y, var.equal.p, graph = TRUE)
    }
 normaTest<-function(x, graph=TRUE, 
                     hist.title="Histogram", 
-                    qq.title="Normal Q-Q Plot",...)
+                    qq.title="Normal Q-Q Plot",
+                    main_title,...)
   {  
   # Significance test
   #++++++++++++++++++++++
@@ -593,6 +695,7 @@ normaTest<-function(x, graph=TRUE,
             xlab="Data values", ...)
     m<-round(mean(x),1)
     s<-round(sd(x),1)
+    mtext(get("main_title"),side=3,line=-1,col="red", cex=1, outer=TRUE)
     mtext(paste0("Mean : ", m, "; SD : ", s),
           side=3, cex=0.8)
     # add normal curve
@@ -609,517 +712,252 @@ normaTest<-function(x, graph=TRUE,
   return(shapiro.p)
 }
 
-sepfoo <- function(var1, var2) {
+sepfoo <- function(dep_var) {
   
   cleaned_data %>%
-    filter({{ var1 }} == "Cookie") %>%
-    pull({{ var2 }}) -> x
-
-  cleaned_data %>%
-    filter({{ var1 }} == "Rice") %>%
-    pull({{ var2 }}) -> y
+    filter(Category == "Cookie") %>%
+    pull({{ dep_var }}) -> x
+  
+  cleaned_data  %>%
+    filter(Category == "Rice") %>%
+    pull({{ dep_var }}) -> y
   
   dat <- cleaned_data %>% 
-     select({{ var1 }}, {{ var2 }}) %>% 
-     mutate(var1 = {{ var1 }},
-            var2 = {{ var2 }})
+     select(Category, {{ dep_var }}) %>% 
+     rename(dep_var = {{ dep_var }})
   
-  var.equal.p = first(car::leveneTest(data = dat, var2 ~ var1)$`Pr(>F)`) 
+  var.equal.p = first(car::leveneTest(data = dat, dep_var ~ Category)$`Pr(>F)`) 
   
-  rquery.t.test(x, y, var.equal.p)
+  print(i)
+  
+  rquery.t.test(x, y, var.equal.p, main_title=i)
 }
 ```
 
 
-
 ```r
-sepfoo(Category, Data_Alpha_Carotene)
+dt_num_vars <- names(cleaned_data)[4:ncol(cleaned_data)]
+
+for (i in dt_num_vars) {
+  sepfoo(all_of(i))
+}
 ```
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 4e-22 (for x) and 7e-17 (for y) Levene's
-## test p-value :3e-07
+## [1] "Data_Alpha_Carotene"
 ```
 
 ![](homework_notebook_02_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Beta_Carotene)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-21 (for x) and 1e-15 (for y) Levene's
-## test p-value :1e-09
+## [1] "Data_Beta_Carotene"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
-
-
-
-```r
-sepfoo(Category, Data_Beta_Cryptoxanthin) 
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-2.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 5e-21 (for x) and 2e-24 (for y) Levene's
-## test p-value :0.1
+## [1] "Data_Beta_Cryptoxanthin"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-3.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Carbohydrate)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 0.2 (for x) and 3e-06 (for y) Levene's test
-## p-value :5e-10
+## [1] "Data_Carbohydrate"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-20-1.png)<!-- -->
-
-
-
-```r
-sepfoo(Category, Data_Cholesterol)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-4.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-19 (for x) and 4e-21 (for y) Levene's
-## test p-value :0.009
+## [1] "Data_Cholesterol"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-5.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Choline)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 3e-12 (for x) and 5e-07 (for y) Levene's
-## test p-value :1e-05
+## [1] "Data_Choline"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-22-1.png)<!-- -->
-
-
-
-```r
-sepfoo(Category, Data_Fiber)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-6.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-14 (for x) and 2e-09 (for y) Levene's
-## test p-value :8e-06
+## [1] "Data_Fiber"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-23-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-7.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Lutein_and_Zeaxanthin)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-16 (for x) and 1e-12 (for y) Levene's
-## test p-value :8e-13
+## [1] "Data_Lutein_and_Zeaxanthin"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-24-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-8.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Lycopene)
 ```
-
+## [1] "Data_Lycopene"
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 3e-22 (for x) and 1e-20 (for y) Levene's
-## test p-value :6e-05
-```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-25-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-9.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Niacin)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-13 (for x) and 4e-05 (for y) Levene's
-## test p-value :1e-06
+## [1] "Data_Niacin"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-26-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-10.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Protein)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 8e-07 (for x) and 2e-14 (for y) Levene's
-## test p-value :7e-07
+## [1] "Data_Protein"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-27-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-11.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Retinol)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-18 (for x) and 5e-20 (for y) Levene's
-## test p-value :0.002
+## [1] "Data_Retinol"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-28-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-12.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Riboflavin)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-19 (for x) and 2e-07 (for y) Levene's
-## test p-value :9e-04
+## [1] "Data_Riboflavin"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-29-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-13.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Selenium)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 8e-08 (for x) and 1e-11 (for y) Levene's
-## test p-value :5e-11
+## [1] "Data_Selenium"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-30-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-14.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Sugar_Total)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 8e-04 (for x) and 2e-19 (for y) Levene's
-## test p-value :5e-31
+## [1] "Data_Sugar_Total"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-31-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-15.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Thiamin)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 1e-12 (for x) and 2e-04 (for y) Levene's
-## test p-value :4e-06
+## [1] "Data_Thiamin"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-32-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-16.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Water)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 1e-08 (for x) and 1e-07 (for y) Levene's
-## test p-value :0.1
+## [1] "Data_Water"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-33-1.png)<!-- -->
-
-
 
-```r
-sepfoo(Category, Data_Fat_Monosaturated_Fat)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-17.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 0.01 (for x) and 7e-08 (for y) Levene's
-## test p-value :1e-33
+## [1] "Data_Fat_Monosaturated_Fat"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-34-1.png)<!-- -->
-
-
 
-```r
-sepfoo(Category, Data_Fat_Polysaturated_Fat)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-18.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-05 (for x) and 2e-08 (for y) Levene's
-## test p-value :9e-23
+## [1] "Data_Fat_Polysaturated_Fat"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-35-1.png)<!-- -->
-
-
 
-```r
-sepfoo(Category, Data_Fat_Saturated_Fat)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-19.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-08 (for x) and 7e-23 (for y) Levene's
-## test p-value :2e-15
+## [1] "Data_Fat_Saturated_Fat"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-36-1.png)<!-- -->
-
-
 
-```r
-sepfoo(Category, Data_Fat_Total_Lipid)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-20.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 0.2 (for x) and 1e-14 (for y) Levene's test
-## p-value :7e-21
+## [1] "Data_Fat_Total_Lipid"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-37-1.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Major_Minerals_Calcium)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-21.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 7e-12 (for x) and 1e-19 (for y) Levene's
-## test p-value :0.003
+## [1] "Data_Major_Minerals_Calcium"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-38-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-22.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Major_Minerals_Copper)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-04 (for x) and 5e-12 (for y) Levene's
-## test p-value :2e-27
+## [1] "Data_Major_Minerals_Copper"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-39-1.png)<!-- -->
-
-
-
-```r
-sepfoo(Category, Data_Major_Minerals_Iron)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-23.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 6e-12 (for x) and 9e-20 (for y) Levene's
-## test p-value :5e-06
+## [1] "Data_Major_Minerals_Iron"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-40-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-24.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Major_Minerals_Magnesium)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 7e-07 (for x) and 1e-10 (for y) Levene's
-## test p-value :0.02
+## [1] "Data_Major_Minerals_Magnesium"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-41-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-25.png)<!-- -->
 
-
-
-```r
-sepfoo(Category, Data_Major_Minerals_Phosphorus)
 ```
-
+## [1] "Data_Major_Minerals_Phosphorus"
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 5e-06 (for x) and 3e-06 (for y) Levene's
-## test p-value :0.006
-```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-42-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-26.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Major_Minerals_Potassium)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 1e-06 (for x) and 8e-07 (for y) Levene's
-## test p-value :1e-09
+## [1] "Data_Major_Minerals_Potassium"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-43-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-27.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Major_Minerals_Sodium)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 0.08 (for x) and 1e-10 (for y) Levene's
-## test p-value :0.002
+## [1] "Data_Major_Minerals_Sodium"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-44-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-28.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Major_Minerals_Zinc)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-04 (for x) and 8e-09 (for y) Levene's
-## test p-value :0.001
+## [1] "Data_Major_Minerals_Zinc"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-45-1.png)<!-- -->
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-29.png)<!-- -->
 
-
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_A_RAE)
-```
-
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 4e-18 (for x) and 5e-14 (for y) Levene's
-## test p-value :0.1
+## [1] "Data_Vitamins_Vitamin_A_RAE"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-46-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-30.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_B12)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 1e-15 (for x) and 3e-22 (for y) Levene's
-## test p-value :0.001
+## [1] "Data_Vitamins_Vitamin_B12"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-47-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-31.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_B6)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 8e-21 (for x) and 0.004 (for y) Levene's
-## test p-value :0.03
+## [1] "Data_Vitamins_Vitamin_B6"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-48-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-32.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_C)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 9e-20 (for x) and 8e-16 (for y) Levene's
-## test p-value :6e-08
+## [1] "Data_Vitamins_Vitamin_C"
 ```
-
-![](homework_notebook_02_files/figure-html/unnamed-chunk-49-1.png)<!-- -->
-
 
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-33.png)<!-- -->
 
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_E)
 ```
-
-```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 4e-05 (for x) and 0.01 (for y) Levene's
-## test p-value :7e-39
+## [1] "Data_Vitamins_Vitamin_E"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-50-1.png)<!-- -->
-
-
-```r
-sepfoo(Category, Data_Vitamins_Vitamin_K)
-```
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-34.png)<!-- -->
 
 ```
-## Warning in rquery.t.test(x, y, var.equal.p): x or y is not normally
-## distributed! Shapiro test p-value : 2e-12 (for x) and 2e-13 (for y) Levene's
-## test p-value :0.08
+## [1] "Data_Vitamins_Vitamin_K"
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-51-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-17-35.png)<!-- -->
 
 Для подавляющего большинства параметров не выполняются условия нормальности распределения (тест Шапиро-Уилка, QQ-plot) и одинаковости дисперсии между группами (тест Левина). Априори предположим, что имеет место независимость значений в выборке. Учитывая вышесказанное, кажется уместным для поиска разницы между группами (по переменной Category) использовать тест Манна-Уитни. Для параметра Data_Carbohydrate и Data_Major_Minerals_Zinc дополнительно будет применён t-тест c поправкой Уэлча (p.s: выглядят более менее прилично). 
+
+> Обоснование звучит разумно, однако стоило хотя бы выполнять функцию sepfoo в цикле, чтобы не копировать порядка 30 раз
+
+>> исправлено (19NOV2023)
 
 
 ```r
@@ -1205,11 +1043,13 @@ t.test(data=cleaned_data, Data_Major_Minerals_Zinc ~ Category)
 
 За исключением некоторых переменных (Data_Beta_Cryptoxanthin, Data_Cholesterol, Data_Major_Minerals_Zinc) справедливо предположить, что две выборки (по переменной Category) взяты из распределений с разным средним в генеральной совокупности.
 
+> Верно, обоснование также разумное
+
 # Далее идут **необязательные** дополнительные задания, которые могут принести вам дополнительные баллы в том числе в случае ошибок в предыдущих
 
 ## Корреляционный анализ
 
-1) Создайте корреляционную матрицу с визуализацией и поправкой на множественные сравнения. Объясните, когда лучше использовать корреляционные матрицы и в чём минусы и плюсы корреляционных исследований.
+1) Создайте корреляционную матрицу с визуализацией и поправкой на множественные сравнения. Объясните, когда лучше использовать корреляционные матрицы и в чём минусы и плюсы корреляционных исследований. +
 
 
 ```r
@@ -1223,7 +1063,7 @@ corrplot(corr = cor_plot$r,
          order = "hclust")
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-53-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-19-1.png)<!-- -->
 
 Крестиками отмечены статистические незначимые (с p.value > 0.05), без крестиков – статистически значимые коэффициенты корреляции. 
 
@@ -1242,11 +1082,17 @@ corrplot(corr = cor_plot$r,
 - нет возможности проанализировать сложные взаимодействия между переменными, если они имеют место быть
 - выявленная корреляция не эквивалентна непосредственной каузальной связи
 
+> Таблица построена читаемо, плюсы и минусы выявлены корректно
+
 ## Моделирование
 
-1) Постройте регрессионную модель для переменной **Category**. Опишите процесс построения
+1) Постройте регрессионную модель для переменной **Category**. Опишите процесс построения +
 
 Сделаем переменную **Category** бинарной и из общей модели со всеми числовыми предикторами удалим наиболее скоррелированные. Для этого воспользуемся функцией vif() из пакета broom - итерационно вызываем эту функцию на модели и удаляем переменную с наибольшим значеним VIF. Повторяем эту процедуру до тех пор пока не останется ни одной переменной с VIF больше 5. 
+
+
+> Селекция переменных - разумный шаг
+
 
 
 ```r
@@ -1264,6 +1110,8 @@ model <- glm(data = cleaned_data_m, family = "binomial", Category2 ~ . -Data_Car
 ```
 
 Следующий шаг - проверка на линейность. Для этого отрисуем графики с logit по оси абцисс и значением той или иной числовой переменной, оставшейся после селекции на предыдущем шаге.
+
+> Дополнительный шаг также выглядит разумно, однако не обязательно было удалять подозрительную переменную - она могла дать также прирост в точности
 
 
 ```r
@@ -1288,7 +1136,8 @@ ggplot(cleaned_data_m2, aes(logit, predictor.value))+
 ## `geom_smooth()` using formula = 'y ~ x'
 ```
 
-![](homework_notebook_02_files/figure-html/unnamed-chunk-55-1.png)<!-- -->
+![](homework_notebook_02_files/figure-html/unnamed-chunk-21-1.png)<!-- -->
+
 Перемеенная Data_Selenium не свзана линейно с logit (~= как мне кажется), потому удалим этот предиктор. 
 
 
@@ -1304,7 +1153,10 @@ model2 <- glm(data = cleaned_data_m, family = "binomial", Category2 ~ Data_Alpha
 ## Warning: glm.fit: fitted probabilities numerically 0 or 1 occurred
 ```
 
-Воспользуемся built-in функцией step(), чтобы найти наиболее значимые предикторы для предсказания **Category**. Будем ориентироваться на информационный критерий Акаике (чем меньше, тем лучше). Также посчитаем Байесовский критерий.
+Воспользуемся функцией step() из пакета MASS, чтобы найти наиболее значимые предикторы для предсказания **Category**. Будем ориентироваться на информационный критерий Акаике (чем меньше, тем лучше). Также посчитаем Байесовский критерий.
+
+> Данный шаг также разумный. В целом в процессе сделан упор на отбор переменных, что является одним из разумных путей
+
 
 
 ```r
